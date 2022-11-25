@@ -1,0 +1,22 @@
+{
+  "type": "module",
+  "name": "hfp-cards",
+  "version": "1.0.0",
+  "description": "Flash cards data model",
+  "main": "cards.js",
+  "scripts": {
+    "test": "mocha tests/cards.test.js"
+  },
+  "keywords": [],
+  "author": "Eric J. Kort",
+  "license": "MIT",
+  "devDependencies": {
+    "mocha": "^10.1.0",
+    "request": "^2.88.2"
+  },
+  "dependencies": {
+    "nanoid": "^4.0.0",
+    "sequelize": "^6.25.8",
+    "sqlite3": "^5.1.2"
+  }
+}
