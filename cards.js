@@ -19,7 +19,7 @@ export function Cards(persist = true, path = "../database.sqlite") {
             }
         )    
     }
-        
+
     const Card = sequelize.define('Card', {
         front: DataTypes.TEXT,
         back: DataTypes.TEXT,
@@ -31,13 +31,15 @@ export function Cards(persist = true, path = "../database.sqlite") {
 
     async function add_card(front, back) {
         await Card.sync();
+        let uuid = nanoid();
         await Card.create({
             front: front,
             back: back,
-            uuid: nanoid() 
+            uuid: uuid 
         });
+        return uuid;
     }
-    
+
     async function get_cards() {
         await Card.sync();
         const cards = await Card.findAll();
@@ -64,4 +66,3 @@ export function Cards(persist = true, path = "../database.sqlite") {
       get_all: get_cards
     }
 }
-
