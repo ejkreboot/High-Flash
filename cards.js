@@ -42,6 +42,26 @@ export function Cards(persist = true, path = "../database.sqlite") {
         return uuid;
     }
 
+    async function get_categories() {
+        await Card.sync();
+        let categories = await Card.findAll({
+            attributes: ['category']
+        })
+        categories = categories.map(c => c.category);
+        categories = categories.filter((x, i, a) => a.indexOf(x) == i);
+        return categories;
+    }
+
+    async function get_category(category) {
+        await Card.sync();
+        let cards = await Card.findAll({
+            where: {
+                category: category
+            }
+        })
+        return cards;
+    }
+
     async function get_cards() {
         await Card.sync();
         const cards = await Card.findAll();
@@ -62,9 +82,11 @@ export function Cards(persist = true, path = "../database.sqlite") {
     }  
 
     return {
-      add: add_card,
-      delete: delete_card,
-      get: get_card,
+      add_card: add_card,
+      delete_card: delete_card,
+      get_card: get_card,
+      get_categories: get_categories,
+      get_category: get_category,
       get_all: get_cards
     }
 }
