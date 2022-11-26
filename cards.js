@@ -23,18 +23,20 @@ export function Cards(persist = true, path = "../database.sqlite") {
     const Card = sequelize.define('Card', {
         front: DataTypes.TEXT,
         back: DataTypes.TEXT,
+        category: DataTypes.TEXT,
         uuid: {
             type: DataTypes.UUID,
             primaryKey: true
         }
     });
 
-    async function add_card(front, back) {
+    async function add_card(front, back, category) {
         await Card.sync();
         let uuid = nanoid();
         await Card.create({
             front: front,
             back: back,
+            category: category,
             uuid: uuid 
         });
         return uuid;
