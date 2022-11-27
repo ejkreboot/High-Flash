@@ -83,7 +83,7 @@ export function Cards(persist = true, path = "../database.sqlite") {
 
     async function update_card(card) {
         await Card.sync();
-        await User.update(
+        await Card.update(
             { front: card.front,
               back: card.back,
               category: card.category }, 
