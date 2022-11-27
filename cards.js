@@ -88,8 +88,6 @@ export function Cards(persist = true, path = "../database.sqlite") {
               back: card.back,
               category: card.category }, 
             { where: { uuid: card.uuid }});
-        console.log("update complete");
-        console.log(res);
         return card;
     }  
 
