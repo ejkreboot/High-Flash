@@ -81,12 +81,23 @@ export function Cards(persist = true, path = "../database.sqlite") {
         });
     }  
 
+    async function update_card(card) {
+        await Card.sync();
+        await User.update(
+            { front: card.front,
+              back: card.back,
+              category: card.category }, 
+            { where: { uuid: card.uuid }});
+        return card;
+    }  
+
     return {
       add_card: add_card,
       delete_card: delete_card,
       get_card: get_card,
       get_categories: get_categories,
       get_category: get_category,
-      get_all: get_cards
+      get_all: get_cards,
+      update_card: update_card
     }
 }
