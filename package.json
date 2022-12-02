@@ -15,6 +15,7 @@
     "request": "^2.88.2"
   },
   "dependencies": {
+    "csvtojson": "^2.0.10",
     "nanoid": "^4.0.0",
     "sequelize": "^6.25.8",
     "sqlite3": "^5.1.2"
