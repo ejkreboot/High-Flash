@@ -31,11 +31,11 @@ export function Cards(persist = true, path = "../database.sqlite") {
     });
 
     /*
-     * The Flash model keeps track of each users mastery 
+     * The Progress model keeps track of each users mastery 
      * of each card so that repetition intervals may be 
      * adjusted accordingly.
      */
-    const Flash = sequelize.define('Flash', {
+    const Progress = sequelize.define('Progress', {
         uuid: {
             type: DataTypes.UUID,
             primaryKey: true
@@ -50,7 +50,7 @@ export function Cards(persist = true, path = "../database.sqlite") {
 
     async function sync_all() {
         await Card.sync();
-        await Flash.sync();
+        await Progress.sync();
     }
 
     async function add_card(front, back, category) {
@@ -115,37 +115,17 @@ export function Cards(persist = true, path = "../database.sqlite") {
     }  
 
     /*
-     * STUDY & SCORING FUNCTIONS
+     * STUDY PROGRESS & SCORING FUNCTIONS
+     * 
      */
 
-    async function check_user(id, category) {
-        await sync_all();
-        let flashes = await Flash.findAll({
-            attributes: ['uuid'],
-            where: {
-                user: id
-            }
-        })
-        let cards = await Card.findAll({
-            attributes: ['uuid'],
-            where: {
-                category: category
-            }
-        })
-
-        if(flashes.length == 0 || flashes.length != cards.length) {
-            return(false)
-        } else {
-            return(true)
-        }
-    }
 
     /*
-     * count the active cards for the specified user_id and category
+     * count the cards actively being studied for the specified user_id and category
      */
-    async function active_cards(user_id, category) {
+    async function studying_count(user_id, category) {
         await sync_all();
-        let flashes = await Flash.findAll({
+        let cards = await Progress.findAll({
             attributes: ['uuid'],
             where: {
                 user: user_id,
@@ -153,31 +133,15 @@ export function Cards(persist = true, path = "../database.sqlite") {
                 interval: { [Op.gt]: -1}
             }
         })
-        return(flashes.length)
-    }
-
-    /*
-     * count the active cards for the specified user_id and category
-     */
-    async function active_card_count(user_id, category) {
-        await sync_all();
-        let flashes = await Flash.findAll({
-            attributes: ['uuid'],
-            where: {
-                user: user_id,
-                category: category,
-                interval: { [Op.gt]: -1}
-            }
-        })
-        return(flashes.length)
+        return(cards.length)
     }
 
     /*
      * count the inactive cards for the specified user_id and category
      */
-    async function inactive_card_count(user_id, category) {
+    async function not_studying_count(user_id, category) {
         await sync_all();
-        let flashes = await Flash.findAll({
+        let cards = await Progress.findAll({
             attributes: ['uuid'],
             where: {
                 user: user_id,
@@ -185,14 +149,14 @@ export function Cards(persist = true, path = "../database.sqlite") {
                 interval: -1
             }
         })
-        return(flashes.length)
+        return(cards.length)
     }
 
     /*
-     * make sure all the cards for this category are in the user's study history
+     * make sure all the cards for this category are in the user's flash library
      * creating new entries where needed
      */
-    async function init_study(user_id, category) {
+    async function start_studying(user_id, category) {
         await sync_all();
         let cards = await Card.findAll({
             attributes: ['uuid'],
@@ -200,7 +164,7 @@ export function Cards(persist = true, path = "../database.sqlite") {
                 category: category
             }
         })
-        let flashes = await Flash.findAll({
+        let progress = await Progress.findAll({
             attributes: ['uuid'],
             where: {
                 user: user_id,
@@ -208,9 +172,9 @@ export function Cards(persist = true, path = "../database.sqlite") {
             }
         })
 
-        if(cards.length > flashes.length) {
+        if(cards.length > progress.length) {
             for (const c of cards) {
-                let flash = await Flash.findOne(
+                let p = await Progress.findOne(
                 {
                     attributes: ['uuid'],
                     where: {
@@ -218,8 +182,8 @@ export function Cards(persist = true, path = "../database.sqlite") {
                         card: c.uuid
                     }
                 })
-                if(flash == null) {
-                    await init_flash(user_id, c.uuid);
+                if(p == null) {
+                    await initialize_card(user_id, c.uuid);
                 }
             }
         }    
@@ -227,20 +191,20 @@ export function Cards(persist = true, path = "../database.sqlite") {
     }
 
     /*
-     * intialize card for studying by this user. 
+     * intialize a card for studying by this user. 
      * private function.
      */
-    async function init_flash(user_id, card_id, score = null) {
+    async function initialize_card(user_id, card_id, score = null) {
         let interval = 0;
         let count = 0;
-        let flash = await Flash.findOne({
+        let p = await Progress.findOne({
             attributes: ['n', 'efactor', 'interval'],
             where: {
                 user: user_id,
                 card: card_id
             }
         })
-        if(flash== null) {
+        if(p == null) {
             // this card is not yet setup for this user. Initialize.
             let uuid = nanoid();
             let card = await Card.findOne({
@@ -249,7 +213,7 @@ export function Cards(persist = true, path = "../database.sqlite") {
                     uuid: card_id
                 }
             })
-            await Flash.create({
+            await Progress.create({
                 uuid: uuid,
                 card: card_id,
                 user: user_id,
@@ -263,29 +227,71 @@ export function Cards(persist = true, path = "../database.sqlite") {
     }
 
     /*
+     * ensure at least n cards have interval of 1 if there are 
+     * still inactive (never studied) flashes.
+     */
+    async function activate_cards(user_id, category, n=10) {
+        const interval_one = await Progress.findAll({
+            attributes: ['uuid'],
+            where: {
+                user: user_id,
+                category: category,
+                interval: 1
+            }
+        })
+
+        if(interval_one.length >= n) {
+            return 0;
+        }
+        const inactive = await Progress.findAll({
+            attributes: ['uuid'],
+            limit: n - interval_one.length,
+            where: {
+                user: user_id,
+                category: category,
+                interval: -1 // inactive
+            }
+        })
+
+        for (const f of inactive){
+            await Progress.update(
+                { 
+                    interval: 1
+                },
+                { 
+                    where: { 
+                        uuid: f.uuid
+                    }
+                }
+            );
+        }
+        return(n - interval_one.length)
+    }
+
+    /*
      * Update interval and efactor based on study score 
      */
     async function study(user_id, card_id, score) {
         let sr = null;
-        const flash = await Flash.findOne({
+        const p = await Progress.findOne({
             attributes: ['n', 'efactor', 'interval'],
             where: {
                 user: user_id,
                 card: card_id
             }
         })
-        if(flash== null) {
+        if(p == null) {
             throw Error ('cannot study unitialized card (cards.js line 279)')
         } else {
-            const previous = { n: flash.n, 
-                               efactor: flash.efactor, 
-                               interval: flash.interval };
+            const previous = { n: p.n, 
+                               efactor: p.efactor, 
+                               interval: p.interval };
             const evaluation = { score: score };
             sr = sm2(previous, evaluation);
-            await Flash.update(
+            await Progress.update(
                 { 
                     n: sr.n,
-                    efactor: sr.factor,
+                    efactor: sr.efactor,
                     interval: sr.interval
                 },
                 { 
@@ -298,6 +304,41 @@ export function Cards(persist = true, path = "../database.sqlite") {
         return(sr);
     }
 
+    async function next_card(user_id, category) {
+        await activate_cards(user_id, category, 10);
+        const intervals = await Progress.findAll({
+            attributes: ["uuid", "card", "interval"],
+            where: {
+                interval: { [Op.gt]: -1},
+                user: user_id,
+                category: category
+            }
+        })
+
+        // get a weighted random sample with interval as the inverse weight
+        const ints = intervals.map(i => i.interval);
+        const imax = Math.max(...ints);
+
+        // negative log to inversely weight. 
+        let logints = ints.map(a => Math.ceil(-Math.log(a/(imax+1))));
+        // log attenuates the differences in intervals, so exponentiate
+        logints = logints.map(a => a**2)
+
+        // now construct our array of ids, with the number of copies of each 
+        // id equal to its weight such that the more heavily weighted ids 
+        // are more likely to be selected.
+        let weighted = logints.map((l,i) => (Array(l).fill(intervals[i].card))).reduce((i,c) => i.concat(c));
+        const ix = Math.floor(Math.random() * weighted.length);
+        const next = weighted[ix];
+
+        const card = await Card.findOne({
+            where: {
+                uuid: next
+            }
+        })
+        return(card)
+    }
+
     return {
       add_card: add_card,
       delete_card: delete_card,
@@ -305,11 +346,13 @@ export function Cards(persist = true, path = "../database.sqlite") {
       get_categories: get_categories,
       get_category: get_category,
       get_all: get_cards,
-      init_study: init_study,
+      start_studying: start_studying,
       update_card: update_card,
       study: study,
-      active_card_count: active_card_count,
-      inactive_card_count: inactive_card_count
+      studying_count: studying_count,
+      not_studying_count: not_studying_count,
+      activate_cards: activate_cards,
+      next_card: next_card
     }
 }
 

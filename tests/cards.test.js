@@ -3,16 +3,15 @@ import { strict as assert } from 'assert';
 import pkg from 'csvtojson';
 const { csv } = pkg;
 
-async function load_cards() {
-    const cards=await(csv().fromFile("tests/cards.csv"));
-    return(cards);
-}
 let c = new Cards(false);
+
+before(async () => {  
+    const cards=await(csv().fromFile("tests/cards.csv"));
+    cards.forEach(async function(a) {await c.add_card(a.Front, a.Back, a.Category)});
+})
 
 describe("Database functions", function() {
     it("should be able to create a database and add cards", async function() {
-        let tc = await(load_cards());
-        tc.forEach(async function(a) {await c.add_card(a.Front, a.Back, a.Category)});
         let cards = await c.get_all();
         assert.equal(cards.length, 30);
     });
@@ -36,7 +35,7 @@ describe("Database functions", function() {
 
     it("should be able to delete card by uuid", async function() {
         let cards = await c.get_all();
-        const uuid = cards[0].uuid;
+        const uuid = cards[20].uuid;
         await(c.delete_card(uuid));
         cards = await c.get_all();
         assert.equal(cards.length, 29);
@@ -50,32 +49,32 @@ describe("Database functions", function() {
 
     it("should be able to retrieve cards in a category", async function() {
         let cards = await c.get_category("Neurology");
-        assert.equal(cards.length, 17);
+        assert.equal(cards.length, 18);
     });
 });
 
 describe("Study functions", function() {
     it("should be able to initialize study for specified user", async function() {
-        let a = await c.active_card_count("1", "Neurology")
-        let i = await c.inactive_card_count("1", "Neurology")
+        let a = await c.studying_count("1", "Neurology")
+        let i = await c.not_studying_count("1", "Neurology")
         assert.equal(a, 0)
         assert.equal(i, 0)
-        await c.init_study("1", "Neurology")
-        a = await c.active_card_count("1", "Neurology")
-        i = await c.inactive_card_count("1", "Neurology")
+        await c.start_studying("1", "Neurology")
+        a = await c.studying_count("1", "Neurology")
+        i = await c.not_studying_count("1", "Neurology")
         assert.equal(a, 0)
-        assert.equal(i, 17)
+        assert.equal(i, 18)
 
     });
     it("should be able to add newly added card to user flash collection", async function() {
         await c.add_card("A new card front", "A new card back", "Neurology");
-        let i = await c.inactive_card_count("1", "Neurology")
-        assert.equal(i, 17)
-        await c.init_study("1", "Neurology")
-        i = await c.inactive_card_count("1", "Neurology")
+        let i = await c.not_studying_count("1", "Neurology")
         assert.equal(i, 18)
+        await c.start_studying("1", "Neurology")
+        i = await c.not_studying_count("1", "Neurology")
+        assert.equal(i, 19)
     });
-    it("should be compute intervals after studying", async function() {
+    it("should compute intervals after studying", async function() {
         const cards = await c.get_category("Neurology")
         let sr = await c.study("1", cards[0].uuid, 4)
         assert.equal(sr.efactor, 2.5)
@@ -87,10 +86,28 @@ describe("Study functions", function() {
 
         sr = await c.study("1", cards[0].uuid, 3)
         sr = await c.study("1", cards[0].uuid, 1)
-        assert.equal(sr.efactor, 1.96)
+        assert.equal(sr.efactor, 1.92)
         assert.equal(sr.interval, 1)
     });
 
+    it("should activate up to n cards", async function() {
+        let n = await(c.not_studying_count("1", "Neurology"));
+        assert.equal(n, 18);
+        let a = await(c.activate_cards("1", "Neurology", 5));
+        n = await(c.not_studying_count("1", "Neurology"));
+        assert.equal(a, 4); // one was activated by previous test
+        a = await(c.activate_cards("1", "Neurology", 5));
+        assert.equal(a, 0);
+    });
+
+   it("should return the next flash to study", async function() {
+        // selection is partially random so hard to test without a seed which Math.random 
+        // does not utilize. So this test is rather lame.
+        assert.doesNotThrow(async function() { await c.next_card("1", "Neurology")});
+        let card = await c.next_card("1", "Neurology");
+        assert.equal(card.category, "Neurology")
+        assert.equal(await c.studying_count("1", "Neurology"), 10)
+    });
 });
 
 
