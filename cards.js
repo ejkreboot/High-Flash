@@ -1,5 +1,7 @@
 import { Sequelize, Op, DataTypes } from 'sequelize';
 import { nanoid } from 'nanoid'
+import pkg from 'csvtojson';
+const { csv } = pkg;
 
 export function Cards(persist = true, path = "../database.sqlite") {
     let sequelize;
@@ -339,6 +341,27 @@ export function Cards(persist = true, path = "../database.sqlite") {
         return(card)
     }
 
+    /* 
+     * UTILITY FUNCTIONS
+     *
+     */
+
+    /*
+     * Import cards from csv file.
+     * Must have columns "Front", "Back", and "Category"
+     * 
+     * path: path to csv file
+     * db: path to sqlite db. If omitted will use memory.
+     * 
+     */
+    
+    async function import_from_csv(path, db = null) {
+        const cards=await(csv().fromFile("tests/cards.csv"));
+        for(let a of cards) {
+            await this.add_card(a.Front, a.Back, a.Category);
+        }
+    }
+
     return {
       add_card: add_card,
       delete_card: delete_card,
@@ -352,7 +375,8 @@ export function Cards(persist = true, path = "../database.sqlite") {
       studying_count: studying_count,
       not_studying_count: not_studying_count,
       activate_cards: activate_cards,
-      next_card: next_card
+      next_card: next_card,
+      import_from_csv: import_from_csv
     }
 }
 

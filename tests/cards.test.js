@@ -6,8 +6,9 @@ const { csv } = pkg;
 let c = new Cards(false);
 
 before(async () => {  
-    const cards=await(csv().fromFile("tests/cards.csv"));
-    cards.forEach(async function(a) {await c.add_card(a.Front, a.Back, a.Category)});
+    await c.import_from_csv("tests/cards.csv");
+    // const cards=await(csv().fromFile("tests/cards.csv"));
+    // cards.forEach(async function(a) {await c.add_card(a.Front, a.Back, a.Category)});
 })
 
 describe("Database functions", function() {
@@ -18,12 +19,12 @@ describe("Database functions", function() {
 
     it("should be able to retrieve card fronts", async function() {
         let cards = await c.get_all()
-        assert.equal(cards[1].front, "What MRI imaging modality is represented by this image:");
+        assert(cards[1].front.match("^You are caring for a 4 year male who presents "));
     });
 
     it("should be able to retrieve card backs", async function() {
         let cards = await c.get_all()
-        assert(cards[1].back.match('^T2 FLAIR.*'));
+        assert(cards[1].back.match('^The patient has signs.*'));
     });
 
     it("should be able to retrieve cards by uuid", async function() {
