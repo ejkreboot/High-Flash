@@ -356,7 +356,10 @@ export function Cards(persist = true, path = "../database.sqlite") {
      */
     
     async function import_from_csv(path, db = null) {
-        const cards=await(csv().fromFile("tests/cards.csv"));
+        if(db == null) {
+            db = this.path;
+        }
+        const cards=await(csv().fromFile(path));
         for(let a of cards) {
             await this.add_card(a.Front, a.Back, a.Category);
         }
