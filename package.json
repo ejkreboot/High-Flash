@@ -1,6 +1,6 @@
 {
   "type": "module",
-  "name": "High-Flash",
+  "name": "high-flash",
   "version": "1.0.0",
   "description": "Flash cards data model",
   "main": "cards.js",
