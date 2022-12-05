@@ -3,6 +3,12 @@ logs
 *.log
 npm-debug.log*
 
+# test dbs
+*.sqlite
+
+# macos
+.DS_Store
+
 # Runtime data
 pids
 *.pid
