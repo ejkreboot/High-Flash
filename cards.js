@@ -1,7 +1,7 @@
 import { Sequelize, Op, DataTypes } from 'sequelize';
 import { nanoid } from 'nanoid'
-import pkg from 'csvtojson';
-const { csv } = pkg;
+//import pkg from 'csvtojson';
+//const { csv } = pkg;
 
 export function Cards(persist = true, path = "../database.sqlite") {
     let sequelize;
