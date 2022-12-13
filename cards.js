@@ -155,7 +155,7 @@ export function Cards(persist = true, path = "../database.sqlite") {
     }
 
     /*
-     * make sure all the cards for this category are in the user's flash library
+     * make sure all the cards for this category are in the user's progress library
      * creating new entries where needed
      */
     async function start_studying(user_id, category) {
@@ -188,8 +188,30 @@ export function Cards(persist = true, path = "../database.sqlite") {
                     await initialize_card(user_id, c.uuid);
                 }
             }
-        }    
+        }  
+        
+        // make sure at least 10 cards are actively being studied (if 
+        // there are that many cards).)
+        await activate_cards(user_id, category)
         return;
+    }
+
+    /*
+     * Get card score. Returns null if uninitialized.
+     */
+    async function get_score(user_id, card_id) {
+        let p = await Progress.findOne({
+            attributes: ['n', 'efactor', 'interval'],
+            where: {
+                user: user_id,
+                card: card_id
+            }
+        })
+        if(p == null) {
+            return(null);
+        } else {
+            return(p.dataValues);
+        }
     }
 
     /*
@@ -229,10 +251,10 @@ export function Cards(persist = true, path = "../database.sqlite") {
     }
 
     /*
-     * ensure at least n cards have interval of 1 if there are 
+     * ensure at least 10 cards have interval of 1 if there are 
      * still inactive (never studied) flashes.
      */
-    async function activate_cards(user_id, category, n=10) {
+    async function activate_cards(user_id, category) {
         const interval_one = await Progress.findAll({
             attributes: ['uuid'],
             where: {
@@ -242,12 +264,12 @@ export function Cards(persist = true, path = "../database.sqlite") {
             }
         })
 
-        if(interval_one.length >= n) {
+        if(interval_one.length >= 10) {
             return 0;
         }
         const inactive = await Progress.findAll({
             attributes: ['uuid'],
-            limit: n - interval_one.length,
+            limit: 10 - interval_one.length,
             where: {
                 user: user_id,
                 category: category,
@@ -267,7 +289,7 @@ export function Cards(persist = true, path = "../database.sqlite") {
                 }
             );
         }
-        return(n - interval_one.length)
+        return(10 - interval_one.length)
     }
 
     /*
@@ -307,6 +329,7 @@ export function Cards(persist = true, path = "../database.sqlite") {
     }
 
     async function next_card(user_id, category) {
+        await start_studying(user_id, category);
         await activate_cards(user_id, category, 10);
         const intervals = await Progress.findAll({
             attributes: ["uuid", "card", "interval"],
@@ -377,9 +400,9 @@ export function Cards(persist = true, path = "../database.sqlite") {
       study: study,
       studying_count: studying_count,
       not_studying_count: not_studying_count,
-      activate_cards: activate_cards,
       next_card: next_card,
-      import_from_csv: import_from_csv
+      import_from_csv: import_from_csv,
+      get_score: get_score
     }
 }
 

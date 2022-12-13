@@ -63,17 +63,17 @@ describe("Study functions", function() {
         await c.start_studying("1", "Neurology")
         a = await c.studying_count("1", "Neurology")
         i = await c.not_studying_count("1", "Neurology")
-        assert.equal(a, 0)
-        assert.equal(i, 18)
+        assert.equal(a, 10)
+        assert.equal(i, 8)
 
     });
     it("should be able to add newly added card to user flash collection", async function() {
         await c.add_card("A new card front", "A new card back", "Neurology");
         let i = await c.not_studying_count("1", "Neurology")
-        assert.equal(i, 18)
+        assert.equal(i, 8)
         await c.start_studying("1", "Neurology")
         i = await c.not_studying_count("1", "Neurology")
-        assert.equal(i, 19)
+        assert.equal(i, 9)
     });
     it("should compute intervals after studying", async function() {
         const cards = await c.get_category("Neurology")
@@ -91,16 +91,6 @@ describe("Study functions", function() {
         assert.equal(sr.interval, 1)
     });
 
-    it("should activate up to n cards", async function() {
-        let n = await(c.not_studying_count("1", "Neurology"));
-        assert.equal(n, 18);
-        let a = await(c.activate_cards("1", "Neurology", 5));
-        n = await(c.not_studying_count("1", "Neurology"));
-        assert.equal(a, 4); // one was activated by previous test
-        a = await(c.activate_cards("1", "Neurology", 5));
-        assert.equal(a, 0);
-    });
-
    it("should return the next flash to study", async function() {
         // selection is partially random so hard to test without a seed which Math.random 
         // does not utilize. So this test is rather lame.
@@ -108,6 +98,13 @@ describe("Study functions", function() {
         let card = await c.next_card("1", "Neurology");
         assert.equal(card.category, "Neurology")
         assert.equal(await c.studying_count("1", "Neurology"), 10)
+    });
+
+    it("should get a card score", async function() {
+        const cards = await c.get_category("Neurology");
+        const score = await c.get_score(1, cards[0].uuid)
+        console.log(score);
+        assert.equal(1, 1);
     });
 });
 
