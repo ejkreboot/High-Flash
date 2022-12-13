@@ -368,10 +368,6 @@ export function Cards(persist = true, path = "../database.sqlite") {
      * UTILITY FUNCTIONS
      *
      */
-
-    function round (x, d=0) {
-        return(Math.round(x * 10**d) / 10**d)
-    }
     
     /*
      * Import cards from csv file.
@@ -410,6 +406,9 @@ export function Cards(persist = true, path = "../database.sqlite") {
     }
 }
 
+function _round (x, d=0) {
+    return(Math.round(x * 10**d) / 10**d)
+}
 
 /**
  * This is the SM-2 algorithm from SuperMemo. 
@@ -439,5 +438,5 @@ export function Cards(persist = true, path = "../database.sqlite") {
             interval = Math.round(previous.interval * efactor)
         }
     }
-    return {n, _round(efactor, 2), _round(interval,2)}
+    return {n: n, efactor: _round(efactor, 2), interval: _round(interval,2)}
 }
