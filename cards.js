@@ -369,6 +369,10 @@ export function Cards(persist = true, path = "../database.sqlite") {
      *
      */
 
+    function round (x, d=0) {
+        return(Math.round(x * 10**d) / 10**d)
+    }
+    
     /*
      * Import cards from csv file.
      * Must have columns "Front", "Back", and "Category"
@@ -432,8 +436,8 @@ export function Cards(persist = true, path = "../database.sqlite") {
         } else if (previous.n == 1) {
             interval = 6
         } else {
-            interval = Math.ceil(previous.interval * efactor)
+            interval = Math.round(previous.interval * efactor)
         }
     }
-    return {n, efactor, interval}
+    return {n, _round(efactor, 2), _round(interval,2)}
 }
