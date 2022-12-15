@@ -139,6 +139,22 @@ export function Cards(persist = true, path = "../database.sqlite") {
     }
 
     /*
+    * count the cards actively being studied for the specified user_id and category
+    */
+    async function mastered_count(user_id, category) {
+        await sync_all();
+        let cards = await Progress.findAll({
+            attributes: ['uuid'],
+            where: {
+                user: user_id,
+                category: category,
+                interval: { [Op.gt]: 10}
+            }
+        })
+        return(cards.length)
+    }
+
+    /*
      * count the inactive cards for the specified user_id and category
      */
     async function not_studying_count(user_id, category) {
@@ -392,17 +408,21 @@ export function Cards(persist = true, path = "../database.sqlite") {
       add_card: add_card,
       delete_card: delete_card,
       get_card: get_card,
+      get_all: get_cards,
+      update_card: update_card,
+
       get_categories: get_categories,
       get_category: get_category,
-      get_all: get_cards,
+
       start_studying: start_studying,
-      update_card: update_card,
       study: study,
       studying_count: studying_count,
       not_studying_count: not_studying_count,
       next_card: next_card,
+      get_score: get_score,
+      mastered_count: mastered_count,
+
       import_from_csv: import_from_csv,
-      get_score: get_score
     }
 }
 
