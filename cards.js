@@ -1,18 +1,14 @@
 import { Sequelize, Op, DataTypes } from 'sequelize';
+import mysql from 'mysql2/promise';
 import { nanoid } from 'nanoid'
+import config from './config.js'
 import pkg from 'csvtojson';
 const { csv } = pkg;
 
-export function Cards(persist = true, path = "../database.sqlite") {
+export function Cards(persist = true) {
     let sequelize;
     if(persist) {
-        sequelize = new Sequelize(
-            {    
-                "logging": false,
-                "dialect": "sqlite",
-                "storage": path
-            }
-        )    
+        sequelize = new Sequelize(config.db);
     } else {
         sequelize = new Sequelize(
             'sqlite::memory:',
@@ -22,41 +18,111 @@ export function Cards(persist = true, path = "../database.sqlite") {
         )    
     }
 
-    const Card = sequelize.define('Card', {
-        uuid: {
-            type: DataTypes.UUID,
-            primaryKey: true
+    async function close_db() {
+        await sequelize.close();
+        return;
+    }
+
+    async function check_db() {
+        let ok = true;
+        const {db: {host, username, password, database}} = config;
+        var connection;
+        try{
+            connection = await mysql.createConnection({
+                host:  host,
+                user: username,
+                password: password,
+                database: database
+            });
+            await connection.query('SELECT * FROM CARDS LIMIT 1');
+        } catch(e) {
+            ok = false;
+        } finally {
+            connection.end();
+        }
+        return ok;
+    }
+
+    async function init_db() {
+        const ok = await check_db();
+        if(!ok) {
+            const {db: {host, username, password, database}} = config;
+            const connection = await mysql.createConnection({
+                host:  host,
+                user: username,
+                password: password
+            });
+            const res = await connection.query('CREATE DATABASE IF NOT EXISTS ' + config.db.database);
+            await Card.sync();
+            await Progress.sync();
+            await Card.destroy({ where: {} })
+            await Progress.destroy({ where: {} })
+            await Card.sync();
+            await Progress.sync();
+            connection.end();
+        }
+        return(true);
+    }
+
+    const Card = sequelize.define('Card', 
+        {
+            uuid: {
+                type: DataTypes.UUID,
+                primaryKey: true
+            },
+            front: DataTypes.TEXT,
+            back: DataTypes.TEXT,
+            category: DataTypes.STRING(100)
         },
-        front: DataTypes.TEXT,
-        back: DataTypes.TEXT,
-        category: DataTypes.TEXT
-    });
+        {
+            indexes: [
+                {
+                    unique: true,
+                    fields: ['uuid']
+                },
+                {
+                    fields: ['category']
+                },
+
+            ]
+        }
+        );
 
     /*
      * The Progress model keeps track of each users mastery 
      * of each card so that repetition intervals may be 
      * adjusted accordingly.
      */
-    const Progress = sequelize.define('Progress', {
-        uuid: {
-            type: DataTypes.UUID,
-            primaryKey: true
+    const Progress = sequelize.define('Progress', 
+        {
+            uuid: {
+                type: DataTypes.UUID,
+                primaryKey: true
+            },
+            card: DataTypes.UUID,
+            user: DataTypes.UUID,
+            n: DataTypes.INTEGER,
+            efactor: DataTypes.FLOAT,
+            interval: DataTypes.INTEGER,
+            category: DataTypes.STRING(100)
         },
-        card: DataTypes.UUID,
-        user: DataTypes.UUID,
-        n: DataTypes.NUMBER,
-        efactor: DataTypes.NUMBER,
-        interval: DataTypes.NUMBER,
-        category: DataTypes.TEXT
-    });
-
-    async function sync_all() {
-        await Card.sync();
-        await Progress.sync();
-    }
+        {
+            indexes: [
+                {
+                    unique: true,
+                    fields: ['card']
+                },
+                {
+                    fields: ['user']
+                },
+                {
+                    fields: ['user', 'category']
+                },
+            ]
+        }
+    );
 
     async function add_card(front, back, category) {
-        await Card.sync();
         let uuid = nanoid();
         await Card.create({
             front: front,
@@ -68,7 +134,6 @@ export function Cards(persist = true, path = "../database.sqlite") {
     }
 
     async function get_categories() {
-        await Card.sync();
         let categories = await Card.findAll({
             attributes: ['category']
         })
@@ -78,7 +143,6 @@ export function Cards(persist = true, path = "../database.sqlite") {
     }
 
     async function get_category(category) {
-        await Card.sync();
         let cards = await Card.findAll({
             where: {
                 category: category
@@ -87,27 +151,23 @@ export function Cards(persist = true, path = "../database.sqlite") {
         return cards;
     }
 
-    async function get_cards() {
-        await Card.sync();
-        const cards = await Card.findAll();
+    async function get_cards(where = null) {
+        const cards = await Card.findAll( { where });
         return cards;
     }
 
     async function get_card(uuid) {
-        await Card.sync();
         let card = await Card.findByPk(uuid);
         return card;
     }
 
     async function delete_card(uuid) {
-        await Card.sync();
         await Card.destroy({
             where: { uuid: uuid },
         });
     }  
 
     async function update_card(card) {
-        await Card.sync();
         const res = await Card.update(
             { front: card.front,
               back: card.back,
@@ -126,7 +186,6 @@ export function Cards(persist = true, path = "../database.sqlite") {
      * count the cards actively being studied for the specified user_id and category
      */
     async function studying_count(user_id, category) {
-        await sync_all();
         let cards = await Progress.findAll({
             attributes: ['uuid'],
             where: {
@@ -142,7 +201,6 @@ export function Cards(persist = true, path = "../database.sqlite") {
     * count the cards actively being studied for the specified user_id and category
     */
     async function mastered_count(user_id, category) {
-        await sync_all();
         let cards = await Progress.findAll({
             attributes: ['uuid'],
             where: {
@@ -158,7 +216,6 @@ export function Cards(persist = true, path = "../database.sqlite") {
      * count the inactive cards for the specified user_id and category
      */
     async function not_studying_count(user_id, category) {
-        await sync_all();
         let cards = await Progress.findAll({
             attributes: ['uuid'],
             where: {
@@ -175,15 +232,14 @@ export function Cards(persist = true, path = "../database.sqlite") {
      * creating new entries where needed
      */
     async function start_studying(user_id, category) {
-        await sync_all();
         let cards = await Card.findAll({
-            attributes: ['uuid'],
+            attributes: ['uuid', 'category'],
             where: {
                 category: category
             }
         })
         let progress = await Progress.findAll({
-            attributes: ['uuid'],
+            attributes: ['uuid', 'card', 'category'],
             where: {
                 user: user_id,
                 category: category
@@ -191,23 +247,18 @@ export function Cards(persist = true, path = "../database.sqlite") {
         })
 
         if(cards.length > progress.length) {
+            let cards_to_init = []
+            let ids = progress.map(p => p.card);
             for (const c of cards) {
-                let p = await Progress.findOne(
-                {
-                    attributes: ['uuid'],
-                    where: {
-                        user: user_id,
-                        card: c.uuid
-                    }
-                })
-                if(p == null) {
-                    await initialize_card(user_id, c.uuid);
+                if(ids.indexOf(c.uuid) < 0) {
+                    cards_to_init.push({user_id: user_id, card_id: c.uuid, category: c.category})
                 }
             }
+            await initialize_cards(cards_to_init);
+
         }  
-        
         // make sure at least 10 cards are actively being studied (if 
-        // there are that many cards).)
+        // there are that many cards).
         await activate_cards(user_id, category)
         return;
     }
@@ -234,35 +285,15 @@ export function Cards(persist = true, path = "../database.sqlite") {
      * intialize a card for studying by this user. 
      * private function.
      */
-    async function initialize_card(user_id, card_id, score = null) {
-        let interval = 0;
-        let count = 0;
-        let p = await Progress.findOne({
-            attributes: ['n', 'efactor', 'interval'],
-            where: {
-                user: user_id,
-                card: card_id
-            }
-        })
-        if(p == null) {
-            // this card is not yet setup for this user. Initialize.
-            let uuid = nanoid();
-            let card = await Card.findOne({
-                attributes: ['category'],
-                where: { 
-                    uuid: card_id
-                }
-            })
-            await Progress.create({
-                uuid: uuid,
-                card: card_id,
-                user: user_id,
-                n: 0.0,
-                efactor: 2.5,
-                interval: -1, // card is not active yet
-                category: card.category               
-            })
-        } 
+    async function initialize_cards(cards) {
+        const rows = cards.map(o => {return {uuid: nanoid(), 
+                                             card: o.card_id, 
+                                             user: o.user_id, 
+                                             n: 0.0, 
+                                             efactor: 2.5, 
+                                             interval: -1, 
+                                             category: o.category}})
+        await Progress.bulkCreate(rows);
         return;
     }
 
@@ -283,6 +314,7 @@ export function Cards(persist = true, path = "../database.sqlite") {
         if(interval_one.length >= 10) {
             return 0;
         }
+
         const inactive = await Progress.findAll({
             attributes: ['uuid'],
             limit: 10 - interval_one.length,
@@ -293,18 +325,17 @@ export function Cards(persist = true, path = "../database.sqlite") {
             }
         })
 
-        for (const f of inactive){
-            await Progress.update(
-                { 
-                    interval: 1
-                },
-                { 
-                    where: { 
-                        uuid: f.uuid
-                    }
+        const ids = inactive.map(i => i.uuid);
+        await Progress.update(
+            { 
+                interval: 1
+            },
+            { 
+                where: { 
+                    uuid: ids
                 }
-            );
-        }
+            }
+        );
         return(10 - interval_one.length)
     }
 
@@ -390,14 +421,10 @@ export function Cards(persist = true, path = "../database.sqlite") {
      * Must have columns "Front", "Back", and "Category"
      * 
      * path: path to csv file
-     * db: path to sqlite db. If omitted will use memory.
      * 
      */
     
-    async function import_from_csv(path, db = null) {
-        if(db == null) {
-            db = this.path;
-        }
+    async function import_from_csv(path) {
         const cards=await(csv().fromFile(path));
         for(let a of cards) {
             await this.add_card(a.Front, a.Back, a.Category);
@@ -405,6 +432,9 @@ export function Cards(persist = true, path = "../database.sqlite") {
     }
 
     return {
+      init_db: init_db,
+      close_db: close_db,
+
       add_card: add_card,
       delete_card: delete_card,
       get_card: get_card,
