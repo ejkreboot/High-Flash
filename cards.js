@@ -15,6 +15,7 @@ export function Cards() {
         dialect: process.env.HIGHFLASH_DB_DIALECT || "mysql",
         logging: false
     }
+    console.log(config)
     let sequelize = new Sequelize(config);
 
     async function close_db() {
@@ -33,13 +34,27 @@ export function Cards() {
                 password: password,
                 database: database
             });
-            await connection.query('SELECT * FROM CARDS LIMIT 1');
-        } catch(e) {
-            ok = false;
-        } finally {
+            await connection.query('SELECT * FROM Cards LIMIT 1');
             connection.end();
+        } catch(e) {
+            if(connection.end) {
+                connection.end()
+            }
+            ok = false;
         }
         return ok;
+    }
+
+    async function reset_db() {
+        const ok = await check_db();
+        if(ok) {
+            await Card.destroy({ where: {} })
+            await Progress.destroy({ where: {} })
+            await Card.sync();
+            await Progress.sync();        
+        } else {
+            init_db();
+        }
     }
 
     async function init_db() {
@@ -52,10 +67,6 @@ export function Cards() {
                 password: password
             });
             const res = await connection.query('CREATE DATABASE IF NOT EXISTS ' + config.database);
-            await Card.sync();
-            await Progress.sync();
-            await Card.destroy({ where: {} })
-            await Progress.destroy({ where: {} })
             await Card.sync();
             await Progress.sync();
             connection.end();
@@ -431,27 +442,29 @@ export function Cards() {
     }
 
     return {
-      init_db: init_db,
-      close_db: close_db,
+      init_db,
+      close_db,
+      check_db,
+      reset_db,
 
-      add_card: add_card,
-      delete_card: delete_card,
-      get_card: get_card,
+      add_card,
+      delete_card,
+      get_card,
       get_all: get_cards,
-      update_card: update_card,
+      update_card,
 
-      get_categories: get_categories,
-      get_category: get_category,
+      get_categories,
+      get_category,
 
-      start_studying: start_studying,
-      study: study,
-      studying_count: studying_count,
-      not_studying_count: not_studying_count,
-      next_card: next_card,
-      get_score: get_score,
-      mastered_count: mastered_count,
+      start_studying,
+      study,
+      studying_count,
+      not_studying_count,
+      next_card,
+      get_score,
+      mastered_count,
 
-      import_from_csv: import_from_csv,
+      import_from_csv
     }
 }
 

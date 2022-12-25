@@ -4,7 +4,7 @@ import { strict as assert } from 'assert';
 let c = new Cards();
 
 before(async () => {  
-    await c.init_db()
+    await c.reset_db();
     await c.import_from_csv("tests/cards.csv");
 })
 
