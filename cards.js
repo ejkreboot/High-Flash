@@ -33,10 +33,16 @@ export function Cards() {
                 password: password,
                 database: database
             });
-            await connection.query('SELECT * FROM Cards LIMIT 1');
+
+            const ct = await connection.query("SHOW TABLES LIKE 'Cards'");
+            const pt = await connection.query("SHOW TABLES LIKE 'Progresses'");
+            if(ct[0].length == 0 || pt[0].length == 0)
+            {
+                throw("Table(s) missing.")
+            }
             connection.end();
         } catch(e) {
-            if(connection.end) {
+            if(connection && connection.end) {
                 connection.end()
             }
             ok = false;
@@ -52,7 +58,13 @@ export function Cards() {
             await Card.sync();
             await Progress.sync();        
         } else {
-            init_db();
+            // clean up corrupt table structure.
+            await init_db();
+            await Card.destroy({ where: {} })
+            await Progress.destroy({ where: {} })
+            await Card.sync();
+            await Progress.sync();        
+            await init_db();
         }
     }
 
