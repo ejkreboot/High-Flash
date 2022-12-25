@@ -1,22 +1,11 @@
 import { Sequelize, Op, DataTypes } from 'sequelize';
 import mysql from 'mysql2/promise';
 import { nanoid } from 'nanoid'
-import config from './config.js'
 import pkg from 'csvtojson';
 const { csv } = pkg;
 
-export function Cards(persist = true) {
-    let sequelize;
-    if(persist) {
-        sequelize = new Sequelize(config.db);
-    } else {
-        sequelize = new Sequelize(
-            'sqlite::memory:',
-            {    
-                "logging": false
-            }
-        )    
-    }
+export function Cards(config) {
+    let sequelize = new Sequelize(config.db);
 
     async function close_db() {
         await sequelize.close();
