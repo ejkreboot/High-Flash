@@ -154,6 +154,15 @@ export function Cards() {
         return uuid;
     }
 
+    async function add_cards(cards) {
+        const rows = cards.map(o => {return {uuid: nanoid(), 
+            front: o.front,
+            back: o.back,
+            category: o.category}});
+        await Card.bulkCreate(rows);
+        return;
+    }
+
     async function get_categories() {
         let categories = await Card.findAll({
             attributes: ['category']
@@ -447,9 +456,7 @@ export function Cards() {
     
     async function import_from_csv(path) {
         const cards=await(csv().fromFile(path));
-        for(let a of cards) {
-            await this.add_card(a.Front, a.Back, a.Category);
-        }
+        await add_cards(cards);
     }
 
     return {
