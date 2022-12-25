@@ -15,7 +15,6 @@ export function Cards() {
         dialect: process.env.HIGHFLASH_DB_DIALECT || "mysql",
         logging: false
     }
-    console.log(config)
     let sequelize = new Sequelize(config);
 
     async function close_db() {
