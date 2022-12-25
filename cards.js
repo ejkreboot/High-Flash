@@ -1,11 +1,21 @@
+import * as dotenv from 'dotenv' 
+dotenv.config()
 import { Sequelize, Op, DataTypes } from 'sequelize';
 import mysql from 'mysql2/promise';
 import { nanoid } from 'nanoid'
 import pkg from 'csvtojson';
 const { csv } = pkg;
 
-export function Cards(config) {
-    let sequelize = new Sequelize(config.db);
+export function Cards() {
+    let config = {
+        username: process.env.HIGHFLASH_DB_USERNAME || "admin",
+        password: process.env.HIGHFLASH_DB_PASSWORD || "",
+        database: process.env.HIGHFLASH_DB_DATABASE || "test",
+        host: process.env.HIGHFLASH_DB_HOST || "localhost",
+        dialect: process.env.HIGHFLASH_DB_DIALECT || "mysql",
+        logging: false
+    }
+    let sequelize = new Sequelize(config);
 
     async function close_db() {
         await sequelize.close();
@@ -14,7 +24,7 @@ export function Cards(config) {
 
     async function check_db() {
         let ok = true;
-        const {db: {host, username, password, database}} = config;
+        const {host, username, password, database} = config;
         var connection;
         try{
             connection = await mysql.createConnection({
@@ -35,13 +45,13 @@ export function Cards(config) {
     async function init_db() {
         const ok = await check_db();
         if(!ok) {
-            const {db: {host, username, password, database}} = config;
+            const {host, username, password, database} = config;
             const connection = await mysql.createConnection({
                 host:  host,
                 user: username,
                 password: password
             });
-            const res = await connection.query('CREATE DATABASE IF NOT EXISTS ' + config.db.database);
+            const res = await connection.query('CREATE DATABASE IF NOT EXISTS ' + config.database);
             await Card.sync();
             await Progress.sync();
             await Card.destroy({ where: {} })

@@ -1,10 +1,7 @@
 import { Cards } from "../cards.js";
 import { strict as assert } from 'assert';
-import pkg from 'csvtojson';
-const { csv } = pkg;
-import config from '../config.js'
 
-let c = new Cards(config);
+let c = new Cards();
 
 before(async () => {  
     await c.init_db()
