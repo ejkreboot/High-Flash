@@ -523,7 +523,7 @@ function _round (x, d=0) {
         if (previous.n == 0) {
             interval = 1
         } else if (previous.n == 1) {
-            interval = 3
+            interval = 6
         } else {
             interval = Math.round(previous.interval * efactor)
         }
