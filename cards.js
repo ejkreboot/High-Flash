@@ -13,10 +13,10 @@ export function Cards() {
         database: process.env.HIGHFLASH_DB_DATABASE || "test",
         host: process.env.HIGHFLASH_DB_HOST || "localhost",
         dialect: process.env.HIGHFLASH_DB_DIALECT || "mysql",
-        logging: false
+        logging: false,
+        query:{raw:true}
     }
     let sequelize = new Sequelize(config);
-
     async function close_db() {
         await sequelize.close();
         return;
@@ -121,7 +121,7 @@ export function Cards() {
                 primaryKey: true
             },
             card: DataTypes.UUID,
-            user: DataTypes.UUID,
+            user: DataTypes.STRING(100), // email
             n: DataTypes.INTEGER,
             efactor: DataTypes.FLOAT,
             interval: DataTypes.INTEGER,
@@ -169,6 +169,7 @@ export function Cards() {
         })
         categories = categories.map(c => c.category);
         categories = categories.filter((x, i, a) => a.indexOf(x) == i);
+
         return categories;
     }
 
@@ -284,12 +285,14 @@ export function Cards() {
                     cards_to_init.push({user_id: user_id, card_id: c.uuid, category: c.category})
                 }
             }
-            await initialize_cards(cards_to_init);
 
+            await initialize_cards(cards_to_init);
         }  
+
         // make sure at least 10 cards are actively being studied (if 
         // there are that many cards).
         await activate_cards(user_id, category)
+
         return;
     }
 
@@ -328,26 +331,26 @@ export function Cards() {
     }
 
     /*
-     * ensure at least 10 cards have interval of 1 if there are 
+     * ensure at least 10 cards have interval of 0 if there are 
      * still inactive (never studied) flashes.
      */
     async function activate_cards(user_id, category) {
-        const interval_one = await Progress.findAll({
+        const interval_zero = await Progress.findAll({
             attributes: ['uuid'],
             where: {
                 user: user_id,
                 category: category,
-                interval: 1
+                interval: 0
             }
         })
 
-        if(interval_one.length >= 10) {
+        if(interval_zero.length >= 10) {
             return 0;
         }
 
         const inactive = await Progress.findAll({
             attributes: ['uuid'],
-            limit: 10 - interval_one.length,
+            limit: 10 - interval_zero.length,
             where: {
                 user: user_id,
                 category: category,
@@ -358,7 +361,7 @@ export function Cards() {
         const ids = inactive.map(i => i.uuid);
         await Progress.update(
             { 
-                interval: 1
+                interval: 0
             },
             { 
                 where: { 
@@ -366,7 +369,7 @@ export function Cards() {
                 }
             }
         );
-        return(10 - interval_one.length)
+        return(10 - interval_zero.length)
     }
 
     /*
@@ -418,7 +421,7 @@ export function Cards() {
         })
 
         // get a weighted random sample with interval as the inverse weight
-        const ints = intervals.map(i => i.interval);
+        const ints = intervals.map(i => (i.interval + 1));
         const imax = Math.max(...ints);
 
         // negative log to inversely weight. 
@@ -438,7 +441,14 @@ export function Cards() {
                 uuid: next
             }
         })
-        return(card)
+
+        const scores = await Progress.findOne({
+            attributes: ["n", "interval", "efactor"],
+            where: {
+                card: next
+            }
+        })
+        return({...card, score: scores})
     }
 
     /* 
@@ -513,7 +523,7 @@ function _round (x, d=0) {
         if (previous.n == 0) {
             interval = 1
         } else if (previous.n == 1) {
-            interval = 6
+            interval = 3
         } else {
             interval = Math.round(previous.interval * efactor)
         }
