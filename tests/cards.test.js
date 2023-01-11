@@ -1,11 +1,15 @@
 import { Cards } from "../cards.js";
 import { strict as assert } from 'assert';
+import { readFile } from 'fs/promises';
 
 let c = new Cards();
 
 before(async () => {  
     await c.reset_db();
-    await c.import_from_csv("tests/cards.csv");
+    const data = await readFile('tests/cards.csv', 'utf8');
+    await c.import_from_csv(data, false);
+    // or...
+    // await c.import_from_csv("tests/cards.csv");
 })
 
 describe("Database functions", function() {

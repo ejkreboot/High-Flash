@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid'
 import pkg from 'csvtojson';
 const { csv } = pkg;
 
+
 export function Cards() {
     let config = {
         username: process.env.HIGHFLASH_DB_USERNAME || "admin",
@@ -457,13 +458,19 @@ export function Cards() {
      * Import cards from csv file.
      * Must have columns "Front", "Back", and "Category"
      * 
-     * path: path to csv file
+     * x: path to csv file or csv as string
      * 
      */
     
-    async function import_from_csv(path) {
-        const cards=await(csv().fromFile(path));
-        await add_cards(cards);
+    async function import_from_csv(x, file=true) {
+        let cards;
+        if(file) {
+            cards=await(csv().fromFile(path));
+            await add_cards(cards);    
+        } else {
+            cards=await(csv().fromString(x));
+            await add_cards(cards);    
+        }
     }
 
     return {
