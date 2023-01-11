@@ -130,10 +130,6 @@ export function Cards() {
         {
             indexes: [
                 {
-                    unique: true,
-                    fields: ['card']
-                },
-                {
                     fields: ['user']
                 },
                 {
