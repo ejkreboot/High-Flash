@@ -193,9 +193,10 @@ export function Cards() {
     }
 
     async function delete_card(uuid) {
-        await Card.destroy({
+        const count = await Card.destroy({
             where: { uuid: uuid },
         });
+        return(count);
     }  
 
     async function update_card(card) {
