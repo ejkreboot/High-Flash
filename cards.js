@@ -120,7 +120,7 @@ export function Cards() {
                 type: DataTypes.UUID,
                 primaryKey: true
             },
-            card: DataTypes.UUID,
+            card: DataTypes.TEXT,
             user: DataTypes.STRING(100), // email
             n: DataTypes.INTEGER,
             efactor: DataTypes.FLOAT,
