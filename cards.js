@@ -141,14 +141,14 @@ export function Cards() {
     );
 
     async function add_card(front, back, category) {
-        let uuid = nanoid();
-        await Card.create({
+        const card = {
             front: front,
             back: back,
             category: category,
-            uuid: uuid 
-        });
-        return uuid;
+            uuid: nanoid()
+        }
+        await Card.create(card)
+        return(card);
     }
 
     async function add_cards(cards) {
