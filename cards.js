@@ -465,7 +465,7 @@ export function Cards() {
     async function import_from_csv(x, file=true) {
         let cards;
         if(file) {
-            cards=await(csv().fromFile(path));
+            cards=await(csv().fromFile(x));
             await add_cards(cards);    
         } else {
             cards=await(csv().fromString(x));
