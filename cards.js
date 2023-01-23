@@ -88,9 +88,14 @@ export function Cards() {
 
     const Card = sequelize.define('Card', 
         {
+            id: {
+                type: DataTypes.INTEGER,
+                autoIncrement: true,
+                primaryKey: true
+            },
             uuid: {
                 type: DataTypes.UUID,
-                primaryKey: true
+                primaryKey: false
             },
             front: DataTypes.TEXT,
             back: DataTypes.TEXT,
@@ -180,12 +185,13 @@ export function Cards() {
     }
 
     async function get_cards(where = null) {
-        const cards = await Card.findAll( { where });
+        let cards = await Card.findAll( { where });
+        cards = cards.sort((a,b) => a.id - b.id)
         return cards;
     }
 
     async function get_card(uuid) {
-        let card = await Card.findByPk(uuid);
+        let card = await Card.findOne({ where: { uuid: uuid }} )
         return card;
     }
 
@@ -406,7 +412,7 @@ export function Cards() {
         return(sr);
     }
 
-    async function next_card(user_id, category) {
+    async function next_card(user_id, category, previous = null) {
         await start_studying(user_id, category);
         await activate_cards(user_id, category, 10);
         const intervals = await Progress.findAll({
@@ -431,8 +437,17 @@ export function Cards() {
         // id equal to its weight such that the more heavily weighted ids 
         // are more likely to be selected.
         let weighted = logints.map((l,i) => (Array(l).fill(intervals[i].card))).reduce((i,c) => i.concat(c));
-        const ix = Math.floor(Math.random() * weighted.length);
-        const next = weighted[ix];
+        let ix = Math.floor(Math.random() * weighted.length);
+        let next = weighted[ix];
+        if(previous && next == previous) {
+            let c = 0;
+            while(next == previous) {
+                c = c + 1;
+                if(c > 5) break; // likely caught in a loop. maybe only 1 card?
+                ix = Math.floor(Math.random() * weighted.length);
+                next = weighted[ix];        
+            }
+        }
 
         const card = await Card.findOne({
             where: {
