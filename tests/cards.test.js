@@ -67,7 +67,6 @@ describe("Study functions", function() {
         i = await c.not_studying_count("a@mail.com", "Neurology")
         assert.equal(a, 10)
         assert.equal(i, 8)
-        assert.equal(8, 8)
     });
 
     it("should be able to initialize study for a second user", async function() {

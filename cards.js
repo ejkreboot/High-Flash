@@ -199,6 +199,9 @@ export function Cards() {
         const count = await Card.destroy({
             where: { uuid: uuid },
         });
+        await Progress.destroy({
+            where: { card: uuid },
+        });
         return(count);
     }  
 
@@ -262,41 +265,34 @@ export function Cards() {
         return(cards.length)
     }
 
+    function _prf(s, m = null) {
+        let n = new Date().getTime();
+        m = m || "";
+        console.log("(" + m + ") " + "Elapsed: " + (n - s) + "ms");
+        return(n)
+    }
     /*
      * make sure all the cards for this category are in the user's progress library
      * creating new entries where needed
      */
     async function start_studying(user_id, category) {
-        let cards = await Card.findAll({
-            attributes: ['uuid', 'category'],
-            where: {
-                category: category
-            }
-        })
-        let progress = await Progress.findAll({
-            attributes: ['uuid', 'card', 'category'],
-            where: {
-                user: user_id,
-                category: category
-            }
-        })
 
-        if(cards.length > progress.length) {
-            let cards_to_init = []
-            let ids = progress.map(p => p.card);
-            for (const c of cards) {
-                if(ids.indexOf(c.uuid) < 0) {
-                    cards_to_init.push({user_id: user_id, card_id: c.uuid, category: c.category})
-                }
-            }
-
-            await initialize_cards(cards_to_init);
+        let cards = await sequelize.query("SELECT uuid, category FROM Cards WHERE category = '" + 
+                                          category + "' and uuid NOT IN " +
+                                          "(SELECT card FROM Progresses where user = '" +
+                                          user_id + "' AND category = '" + category + "')",
+                                        {
+                                            model: Cards,
+                                             mapToModel: true
+                                        } );
+        if(cards.length > 0) {
+            cards = cards.map((x) => {return({user_id: user_id, card_id: x.uuid, category: category})});
+            await initialize_cards(cards);
         }  
 
         // make sure at least 10 cards are actively being studied (if 
         // there are that many cards).
         await activate_cards(user_id, category)
-
         return;
     }
 
@@ -339,28 +335,25 @@ export function Cards() {
      * still inactive (never studied) flashes.
      */
     async function activate_cards(user_id, category) {
-        const interval_zero = await Progress.findAll({
-            attributes: ['uuid'],
+        const intervals = [-1, 0]
+        const lt_one = await Progress.findAll({
+            attributes: ['uuid', 'interval'],
             where: {
                 user: user_id,
                 category: category,
-                interval: 0
+                interval: intervals
             }
         })
+        let interval_zero = lt_one.reduce((t, x) => t + (x.interval == 0), 0)
 
-        if(interval_zero.length >= 10) {
+        if(interval_zero >= 10) {
             return 0;
         }
 
-        const inactive = await Progress.findAll({
-            attributes: ['uuid'],
-            limit: 10 - interval_zero.length,
-            where: {
-                user: user_id,
-                category: category,
-                interval: -1 // inactive
-            }
-        })
+        let inactive = lt_one.filter((x) => x.interval == -1)
+        if(inactive.length > (10 - interval_zero)) {
+          inactive = inactive.slice(0, (10 - interval_zero))
+        }
 
         const ids = inactive.map(i => i.uuid);
         await Progress.update(
@@ -373,7 +366,7 @@ export function Cards() {
                 }
             }
         );
-        return(10 - interval_zero.length)
+        return(10 - interval_zero)
     }
 
     /*

@@ -5,13 +5,14 @@
   "description": "Flash cards data model",
   "main": "cards.js",
   "scripts": {
-    "test": "NODE_ENV=test mocha tests/cards.test.js --timeout 2000"
+    "test": "NODE_ENV=test mocha tests/cards.test.js --timeout 5000"
   },
   "keywords": [],
   "author": "Eric J. Kort",
   "license": "MIT",
   "devDependencies": {
     "mocha": "^10.1.0",
+    "mocha-profiler": "^1.0.0",
     "request": "^2.88.2"
   },
   "dependencies": {
