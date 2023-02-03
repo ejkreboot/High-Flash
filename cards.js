@@ -533,9 +533,9 @@ function _round (x, d=0) {
         n = previous.n + 1
 
         if (previous.n == 0) {
-            interval = 1
+            interval = 2
         } else if (previous.n == 1) {
-            interval = 6
+            interval = 4
         } else {
             interval = Math.round(previous.interval * efactor)
         }
