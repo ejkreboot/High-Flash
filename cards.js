@@ -1,23 +1,15 @@
 import * as dotenv from 'dotenv' 
 dotenv.config()
 import { Sequelize, Op, DataTypes } from 'sequelize';
-import mysql from 'mysql2/promise';
-import { nanoid } from 'nanoid'
+import pg from 'pg';
+//import mysql from 'mysql2/promise';
+import { v4 as nanoid } from 'uuid'
 import pkg from 'csvtojson';
 const { csv } = pkg;
 
 
 export function Cards() {
-    let config = {
-        username: process.env.HIGHFLASH_DB_USERNAME || "admin",
-        password: process.env.HIGHFLASH_DB_PASSWORD || "",
-        database: process.env.HIGHFLASH_DB_DATABASE || "test",
-        host: process.env.HIGHFLASH_DB_HOST || "localhost",
-        dialect: process.env.HIGHFLASH_DB_DIALECT || "mysql",
-        logging: false,
-        query:{raw:true}
-    }
-    let sequelize = new Sequelize(config);
+    let sequelize = new Sequelize(process.env.HIGHFLASH_POSTGRES_URL, { logging: false, query:{raw:true}});
     async function close_db() {
         await sequelize.close();
         return;
@@ -25,27 +17,13 @@ export function Cards() {
 
     async function check_db() {
         let ok = true;
-        const {host, username, password, database} = config;
-        var connection;
-        try{
-            connection = await mysql.createConnection({
-                host:  host,
-                user: username,
-                password: password,
-                database: database
-            });
 
-            const ct = await connection.query("SHOW TABLES LIKE 'Cards'");
-            const pt = await connection.query("SHOW TABLES LIKE 'Progresses'");
-            if(ct[0].length == 0 || pt[0].length == 0)
-            {
-                throw("Table(s) missing.")
-            }
-            connection.end();
+        try {
+            const client = new pg.Client({connectionString: process.env.HIGHFLASH_POSTGRES_URL});
+            await client.connect();
+            client.end();
         } catch(e) {
-            if(connection && connection.end) {
-                connection.end()
-            }
+            console.log("ERROR: ", e)
             ok = false;
         }
         return ok;
@@ -72,16 +50,8 @@ export function Cards() {
     async function init_db() {
         const ok = await check_db();
         if(!ok) {
-            const {host, username, password, database} = config;
-            const connection = await mysql.createConnection({
-                host:  host,
-                user: username,
-                password: password
-            });
-            const res = await connection.query('CREATE DATABASE IF NOT EXISTS ' + config.database);
             await Card.sync();
             await Progress.sync();
-            connection.end();
         }
         return(true);
     }
@@ -277,19 +247,15 @@ export function Cards() {
      */
     async function start_studying(user_id, category) {
 
-        let cards = await sequelize.query("SELECT uuid, category FROM Cards WHERE category = '" + 
-                                          category + "' and uuid NOT IN " +
-                                          "(SELECT card FROM Progresses where user = '" +
-                                          user_id + "' AND category = '" + category + "')",
-                                        {
-                                            model: Cards,
-                                             mapToModel: true
-                                        } );
+        let cards = (await sequelize.query("SELECT uuid, category FROM \"Cards\" WHERE category = '" + 
+                                          category + "' and uuid::text NOT IN " +
+                                          "(SELECT card FROM \"Progresses\" where \"user\" = '" +
+                                          user_id + "' AND \"category\" = '" + category + "')"))[0];
         if(cards.length > 0) {
             cards = cards.map((x) => {return({user_id: user_id, card_id: x.uuid, category: category})});
             await initialize_cards(cards);
         }  
-
+        
         // make sure at least 10 cards are actively being studied (if 
         // there are that many cards).
         await activate_cards(user_id, category)
@@ -310,7 +276,7 @@ export function Cards() {
         if(p == null) {
             return(null);
         } else {
-            return(p.dataValues);
+            return(p);
         }
     }
 
@@ -454,6 +420,7 @@ export function Cards() {
                 card: next
             }
         })
+        debugger;
         return({...card, score: scores})
     }
 

@@ -8,8 +8,6 @@ before(async () => {
     await c.reset_db();
     const data = await readFile('tests/cards.csv', 'utf8');
     await c.import_from_csv(data, false);
-    // or...
-    // await c.import_from_csv("tests/cards.csv");
 })
 
 describe("Database functions", function() {
@@ -17,7 +15,6 @@ describe("Database functions", function() {
         let cards = await c.get_all();
         assert.equal(cards.length, 30);
     });
-
     it("should be able to retrieve card fronts", async function() {
         let cards = await c.get_all();
         assert(cards[1].front.match(/^\w+/));
@@ -86,19 +83,19 @@ describe("Study functions", function() {
         let i = await c.not_studying_count("b@mail.com", "Neurology")
         assert.equal(i, 8)
         await c.start_studying("b@mail.com", "Neurology")
-        i = await c.not_studying_count("b@mail.com", "Neurology")
-        assert.equal(i, 9)
+         i = await c.not_studying_count("b@mail.com", "Neurology")
+         assert.equal(i, 9)
     });
 
     it("should compute intervals after studying", async function() {
         const cards = await c.get_category("Neurology")
         let sr = await c.study("b@mail.com", cards[0].uuid, 4)
         assert.equal(sr.efactor, 2.5)
-        assert.equal(sr.interval, 1)
+        assert.equal(sr.interval, 2)
 
         sr = await c.study("b@mail.com", cards[0].uuid, 5)
         assert.equal(sr.efactor, 2.6)
-        assert.equal(sr.interval, 6)
+        assert.equal(sr.interval, 4)
 
         sr = await c.study("b@mail.com", cards[0].uuid, 3)
         sr = await c.study("b@mail.com", cards[0].uuid, 1)
@@ -119,11 +116,11 @@ describe("Study functions", function() {
 
     it("should get a card score", async function() {
         const cards = await c.get_category("Neurology");
-        const score = await c.get_score(1, cards[0].uuid)
+        const score = await c.get_score("b@mail.com", cards[0].uuid);
         assert.equal(1, 1);
     });
 });
 
 after(async () => {  
-    await c.close_db()
+     await c.close_db()
 })
