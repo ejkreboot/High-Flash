@@ -2,14 +2,42 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 import { Sequelize, Op, DataTypes } from 'sequelize';
 import pg from 'pg';
-//import mysql from 'mysql2/promise';
 import { v4 as nanoid } from 'uuid'
 import pkg from 'csvtojson';
 const { csv } = pkg;
 
+let config;
+const ENV = process.env.NODE_ENV || "prod";
+
+if(ENV == "dev") {
+    let logging = false;
+    if(process.env.DEV_HIGHFLASH_QUERY_LOGGING == 'true') {
+        logging = console.log;
+    }
+    config = {
+        postgres_url: process.env.DEV_HIGHFLASH_POSTGRES_URL, 
+        options: {
+            dialect: "postgres",
+            logging: logging,
+            query: { raw: true },
+            schema: process.env.DEV_HIGHFLASH_POSTGRES_SCHEMA
+        }
+    }
+} else {
+    config = {
+        postgres_url: process.env.HIGHFLASH_POSTGRES_URL, 
+        options: {
+            dialect: "postgres",
+            logging: false,
+            query: { raw: true },
+            schema: process.env.HIGHFLASH_POSTGRES_SCHEMA
+        }
+    }
+}
 
 export function Cards() {
-    let sequelize = new Sequelize(process.env.HIGHFLASH_POSTGRES_URL, { logging: false, query:{raw:true}});
+    let sequelize = new Sequelize(config.postgres_url, config.options);
+
     async function close_db() {
         await sequelize.close();
         return;
@@ -17,13 +45,14 @@ export function Cards() {
 
     async function check_db() {
         let ok = true;
-
+        const client = new pg.Client( {connectionString: config.postgres_url} );
         try {
-            const client = new pg.Client({connectionString: process.env.HIGHFLASH_POSTGRES_URL});
             await client.connect();
+            const card_count = await Card.count();
+            const prog_count = await Progress.count();
             client.end();
         } catch(e) {
-            console.log("ERROR: ", e)
+            client.end();
             ok = false;
         }
         return ok;
@@ -247,9 +276,9 @@ export function Cards() {
      */
     async function start_studying(user_id, category) {
 
-        let cards = (await sequelize.query("SELECT uuid, category FROM \"Cards\" WHERE category = '" + 
+        let cards = (await sequelize.query("SELECT uuid, category FROM \"" + config.options.schema + "\".\"Cards\" WHERE category = '" + 
                                           category + "' and uuid::text NOT IN " +
-                                          "(SELECT card FROM \"Progresses\" where \"user\" = '" +
+                                          "(SELECT card FROM \"" + config.options.schema + "\".\"Progresses\" where \"user\" = '" +
                                           user_id + "' AND \"category\" = '" + category + "')"))[0];
         if(cards.length > 0) {
             cards = cards.map((x) => {return({user_id: user_id, card_id: x.uuid, category: category})});

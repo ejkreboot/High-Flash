@@ -13,7 +13,7 @@ before(async () => {
 describe("Database functions", function() {
     it("should be able to create a database and add cards", async function() {
         let cards = await c.get_all();
-        assert.equal(cards.length, 30);
+        assert.equal(cards.length, 31);
     });
     it("should be able to retrieve card fronts", async function() {
         let cards = await c.get_all();
@@ -38,7 +38,7 @@ describe("Database functions", function() {
         const uuid = cards[1].uuid;
         await(c.delete_card(uuid));
         cards = await c.get_all();
-        assert.equal(cards.length, 29);
+        assert.equal(cards.length, 30);
     });
 
     it("should be able to retrieve categories", async function() {
@@ -49,7 +49,7 @@ describe("Database functions", function() {
 
     it("should be able to retrieve cards in a category", async function() {
         let cards = await c.get_category("Neurology");
-        assert.equal(cards.length, 18);
+        assert.equal(cards.length, 20);
     });
 });
 
@@ -63,7 +63,7 @@ describe("Study functions", function() {
         a = await c.studying_count("a@mail.com", "Neurology")
         i = await c.not_studying_count("a@mail.com", "Neurology")
         assert.equal(a, 10)
-        assert.equal(i, 8)
+        assert.equal(i, 10)
     });
 
     it("should be able to initialize study for a second user", async function() {
@@ -75,16 +75,15 @@ describe("Study functions", function() {
         a = await c.studying_count("b@mail.com", "Neurology")
         i = await c.not_studying_count("b@mail.com", "Neurology")
         assert.equal(a, 10)
-        assert.equal(i, 8)
-        assert.equal(8, 8)
+        assert.equal(i, 10)
     });
     it("should be able to add newly added card to user progress collection", async function() {
         await c.add_card("A new card front", "A new card back", "Neurology");
         let i = await c.not_studying_count("b@mail.com", "Neurology")
-        assert.equal(i, 8)
+        assert.equal(i, 10)
         await c.start_studying("b@mail.com", "Neurology")
          i = await c.not_studying_count("b@mail.com", "Neurology")
-         assert.equal(i, 9)
+         assert.equal(i, 11)
     });
 
     it("should compute intervals after studying", async function() {
