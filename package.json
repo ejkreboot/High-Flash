@@ -12,22 +12,16 @@
   "license": "MIT",
   "devDependencies": {
     "mocha": "^10.1.0",
-    "mocha-profiler": "^1.0.0",
     "request": "^2.88.2"
   },
   "dependencies": {
-    "@aws-sdk/client-rds-data": "^3.238.0",
-    "@aws-sdk/client-sts": "^3.238.0",
     "csvtojson": "^2.0.10",
     "dotenv": "^16.0.3",
-    "mysql2": "^2.3.3",
     "nanoid": "^4.0.0",
     "pg": "^8.9.0",
     "pg-hstore": "^2.3.4",
     "pg-promise": "^11.3.0",
     "sequelize": "^6.28.0",
-    "sqlite3": "^5.1.2",
-    "uuid": "^9.0.0",
-    "why-is-node-running": "^2.2.2"
+    "uuid": "^9.0.0"
   }
 }
