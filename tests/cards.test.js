@@ -1,8 +1,17 @@
+import * as dotenv from 'dotenv' 
+dotenv.config()
 import { Cards } from "../cards.js";
 import { strict as assert } from 'assert';
 import { readFile } from 'fs/promises';
 
-let c = new Cards();
+const config = {
+    url: process.env.DEV_HIGHFLASH_POSTGRES_URL, 
+    dialect: "postgres",
+    logging: false,
+    schema: process.env.DEV_HIGHFLASH_POSTGRES_SCHEMA
+}
+
+let c = new Cards(config);
 
 before(async () => {  
     await c.reset_db();
