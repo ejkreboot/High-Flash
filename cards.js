@@ -7,7 +7,7 @@ const { csv } = pkg;
 
 export function Cards(config = {}) {
     config.query = { raw: true };
-    let sequelize = new Sequelize(config.url, config);
+    let sequelize = new Sequelize(config.postgres_url, config);
 
     async function close_db() {
         await sequelize.close();

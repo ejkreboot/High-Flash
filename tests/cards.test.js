@@ -5,7 +5,7 @@ import { strict as assert } from 'assert';
 import { readFile } from 'fs/promises';
 
 const config = {
-    url: process.env.DEV_HIGHFLASH_POSTGRES_URL, 
+    postgres_url: process.env.DEV_HIGHFLASH_POSTGRES_URL, 
     dialect: "postgres",
     logging: false,
     schema: process.env.DEV_HIGHFLASH_POSTGRES_SCHEMA
