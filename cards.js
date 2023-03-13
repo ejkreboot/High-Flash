@@ -367,6 +367,7 @@ export function Cards(config = {}) {
     }
 
     async function next_card(user_id, category, previous = null) {
+        let next;
         await start_studying(user_id, category);
         await activate_cards(user_id, category, 10);
         const intervals = await Progress.findAll({
@@ -391,16 +392,14 @@ export function Cards(config = {}) {
         // id equal to its weight such that the more heavily weighted ids 
         // are more likely to be selected.
         let weighted = logints.map((l,i) => (Array(l).fill(intervals[i].card))).reduce((i,c) => i.concat(c));
-        let ix = Math.floor(Math.random() * weighted.length);
-        let next = weighted[ix];
-        if(previous && next == previous) {
-            let c = 0;
-            while(next == previous) {
-                c = c + 1;
-                if(c > 5) break; // likely caught in a loop. maybe only 1 card?
-                ix = Math.floor(Math.random() * weighted.length);
-                next = weighted[ix];        
-            }
+        // prevent repeated cards
+        weighted.filter(a => a != previous).length
+        if(weighted.length == 0) {
+            next = previous;
+            console.log("WARNING: no more cards found to study. Returning previous card.")
+        } else {
+            let ix = Math.floor(Math.random() * weighted.length);
+            next = weighted[ix];    
         }
 
         const card = await Card.findOne({
