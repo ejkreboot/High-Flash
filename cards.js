@@ -4,7 +4,6 @@ import { v4 as uuid } from 'uuid'
 import pkg from 'csvtojson';
 const { csv } = pkg;
 
-
 export function Cards(config = {}) {
     config.query = { raw: true };
     let sequelize = new Sequelize(config.postgres_url, config);
@@ -413,10 +412,10 @@ export function Cards(config = {}) {
         const scores = await Progress.findOne({
             attributes: ["n", "interval", "efactor"],
             where: {
-                card: next
+                card: next,
+                user: user_id
             }
         })
-        debugger;
         return({...card, score: scores})
     }
 
