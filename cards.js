@@ -291,7 +291,7 @@ export function Cards(config = {}) {
 
     /*
      * ensure at least 10 cards have weight of 0 if there are 
-     * still inactive (never studied) flashes.
+     * still inactive (never studied) cards.
      */
     async function activate_cards(user_id, category) {
         const weights = [-1, 0]
@@ -310,6 +310,7 @@ export function Cards(config = {}) {
         }
 
         let inactive = lt_one.filter((x) => x.weight == -1)
+
         if(inactive.length > (10 - weight_zero)) {
           inactive = inactive.slice(0, (10 - weight_zero))
         }
@@ -376,8 +377,9 @@ export function Cards(config = {}) {
             }
         })
 
-        const ints = weights.map(i => (i.weight + 1));
-        let weightedArray = weights.flatMap((a, i) => Array(weights[i]).fill(a));
+        // need to invert the weight (11 - a) so that low weight are 
+        // more likely to be reviewed
+        let weightedArray = weights.flatMap((a, i) => Array(11 - (a.weight+1)).fill(a));
         weightedArray = weightedArray.filter(a => a.uuid != previous);
         const randomIndex = Math.floor(Math.random() * weightedArray.length);
 
@@ -477,7 +479,6 @@ function calc_weight(previous, evaluation) {
     }
     return({n: n, weight: weight })
 }
-
 
 /**
  * DEPRECATED:
