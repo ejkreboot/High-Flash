@@ -98,17 +98,15 @@ describe("Study functions", function() {
     it("should compute intervals after studying", async function() {
         const cards = await c.get_category("Neurology")
         let sr = await c.study("b@mail.com", cards[0].uuid, 4)
-        assert.equal(sr.efactor, 2.5)
-        assert.equal(sr.interval, 2)
+        assert.equal(sr.weight, 2)
 
         sr = await c.study("b@mail.com", cards[0].uuid, 5)
-        assert.equal(sr.efactor, 2.6)
-        assert.equal(sr.interval, 4)
+        assert.equal(sr.weight, 4)
 
-        sr = await c.study("b@mail.com", cards[0].uuid, 3)
+        sr = await c.study("b@mail.com", cards[0].uuid, 4)
+        assert.equal(sr.weight, 6)
         sr = await c.study("b@mail.com", cards[0].uuid, 1)
-        assert.equal(sr.efactor, 1.92)
-        assert.equal(sr.interval, 1)
+        assert.equal(sr.weight, 1)
     });
 
     it("should return the next card to study", async function() {

@@ -6,6 +6,7 @@ const { csv } = pkg;
 
 export function Cards(config = {}) {
     config.query = { raw: true };
+
     let sequelize = new Sequelize(config.postgres_url, config);
 
     async function close_db() {
@@ -82,7 +83,7 @@ export function Cards(config = {}) {
 
     /*
      * The Progress model keeps track of each users mastery 
-     * of each card so that repetition intervals may be 
+     * of each card so that repetition weights may be 
      * adjusted accordingly.
      */
     const Progress = sequelize.define('Progress', 
@@ -94,8 +95,7 @@ export function Cards(config = {}) {
             card: DataTypes.TEXT,
             user: DataTypes.STRING(100), // email
             n: DataTypes.INTEGER,
-            efactor: DataTypes.FLOAT,
-            interval: DataTypes.INTEGER,
+            weight: DataTypes.INTEGER,
             category: DataTypes.STRING(100)
         },
         {
@@ -194,7 +194,7 @@ export function Cards(config = {}) {
             where: {
                 user: user_id,
                 category: category,
-                interval: { [Op.gt]: -1}
+                weight: { [Op.gt]: -1}
             }
         })
         return(cards.length)
@@ -209,7 +209,7 @@ export function Cards(config = {}) {
             where: {
                 user: user_id,
                 category: category,
-                interval: { [Op.gt]: 10}
+                weight: { [Op.gt]: 10}
             }
         })
         return(cards.length)
@@ -224,7 +224,7 @@ export function Cards(config = {}) {
             where: {
                 user: user_id,
                 category: category,
-                interval: -1
+                weight: -1
             }
         })
         return(cards.length)
@@ -233,7 +233,6 @@ export function Cards(config = {}) {
     function _prf(s, m = null) {
         let n = new Date().getTime();
         m = m || "";
-        console.log("(" + m + ") " + "Elapsed: " + (n - s) + "ms");
         return(n)
     }
     /*
@@ -262,7 +261,7 @@ export function Cards(config = {}) {
      */
     async function get_score(user_id, card_id) {
         let p = await Progress.findOne({
-            attributes: ['n', 'efactor', 'interval'],
+            attributes: ['n', 'weight'],
             where: {
                 user: user_id,
                 card: card_id
@@ -284,42 +283,41 @@ export function Cards(config = {}) {
                                              card: o.card_id, 
                                              user: o.user_id, 
                                              n: 0.0, 
-                                             efactor: 2.5, 
-                                             interval: -1, 
+                                             weight: -1, 
                                              category: o.category}})
         await Progress.bulkCreate(rows);
         return;
     }
 
     /*
-     * ensure at least 10 cards have interval of 0 if there are 
+     * ensure at least 10 cards have weight of 0 if there are 
      * still inactive (never studied) flashes.
      */
     async function activate_cards(user_id, category) {
-        const intervals = [-1, 0]
+        const weights = [-1, 0]
         const lt_one = await Progress.findAll({
-            attributes: ['uuid', 'interval'],
+            attributes: ['uuid', 'weight'],
             where: {
                 user: user_id,
                 category: category,
-                interval: intervals
+                weight: weights
             }
         })
-        let interval_zero = lt_one.reduce((t, x) => t + (x.interval == 0), 0)
+        let weight_zero = lt_one.reduce((t, x) => t + (x.weight == 0), 0)
 
-        if(interval_zero >= 10) {
+        if(weight_zero >= 10) {
             return 0;
         }
 
-        let inactive = lt_one.filter((x) => x.interval == -1)
-        if(inactive.length > (10 - interval_zero)) {
-          inactive = inactive.slice(0, (10 - interval_zero))
+        let inactive = lt_one.filter((x) => x.weight == -1)
+        if(inactive.length > (10 - weight_zero)) {
+          inactive = inactive.slice(0, (10 - weight_zero))
         }
 
         const ids = inactive.map(i => i.uuid);
         await Progress.update(
             { 
-                interval: 0
+                weight: 0
             },
             { 
                 where: { 
@@ -327,16 +325,16 @@ export function Cards(config = {}) {
                 }
             }
         );
-        return(10 - interval_zero)
+        return(10 - weight_zero)
     }
 
     /*
-     * Update interval and efactor based on study score 
+     * Update weight and efactor based on study score 
      */
     async function study(user_id, card_id, score) {
         let sr = null;
         const p = await Progress.findOne({
-            attributes: ['n', 'efactor', 'interval'],
+            attributes: ['n', 'weight'],
             where: {
                 user: user_id,
                 card: card_id
@@ -346,15 +344,15 @@ export function Cards(config = {}) {
             throw Error ('cannot study unitialized card (cards.js line 279)')
         } else {
             const previous = { n: p.n, 
-                               efactor: p.efactor, 
-                               interval: p.interval };
+                               weight: p.weight };
             const evaluation = { score: score };
-            sr = sm2(previous, evaluation);
+
+            sr = calc_weight(previous, evaluation);
+
             await Progress.update(
                 { 
                     n: sr.n,
-                    efactor: sr.efactor,
-                    interval: sr.interval
+                    weight: sr.weight
                 },
                 { 
                     where: { 
@@ -367,55 +365,36 @@ export function Cards(config = {}) {
     }
 
     async function next_card(user_id, category, previous = null) {
-        let next;
         await start_studying(user_id, category);
         await activate_cards(user_id, category, 10);
-        const intervals = await Progress.findAll({
-            attributes: ["uuid", "card", "interval"],
+        const weights = await Progress.findAll({
+            attributes: ["uuid", "card", "weight"],
             where: {
-                interval: { [Op.gt]: -1},
+                weight: { [Op.gt]: -1},
                 user: user_id,
                 category: category
             }
         })
 
-        // get a weighted random sample with interval as the inverse weight
-        const ints = intervals.map(i => (i.interval + 1));
-        const imax = Math.max(...ints);
+        const ints = weights.map(i => (i.weight + 1));
+        let weightedArray = weights.flatMap((a, i) => Array(weights[i]).fill(a));
+        weightedArray = weightedArray.filter(a => a.uuid != previous);
+        const randomIndex = Math.floor(Math.random() * weightedArray.length);
 
-        // negative log to inversely weight. 
-        let logints = ints.map(a => Math.ceil(-Math.log(a/(imax+1))));
-        // log attenuates the differences in intervals, so exponentiate
-        logints = logints.map(a => a**2)
-
-        // now construct our array of ids, with the number of copies of each 
-        // id equal to its weight such that the more heavily weighted ids 
-        // are more likely to be selected.
-        let weighted = logints.map((l,i) => (Array(l).fill(intervals[i].card))).reduce((i,c) => i.concat(c));
-        // prevent repeated cards
-        weighted.filter(a => a != previous).length
-        if(weighted.length == 0) {
-            next = previous;
-            console.log("WARNING: no more cards found to study. Returning previous card.")
-        } else {
-            let ix = Math.floor(Math.random() * weighted.length);
-            next = weighted[ix];    
-        }
-
-        const card = await Card.findOne({
+        const next = await Card.findOne({
             where: {
-                uuid: next
+                uuid: weightedArray[randomIndex].card
             }
         })
 
         const scores = await Progress.findOne({
-            attributes: ["n", "interval", "efactor"],
+            attributes: ["n", "weight"],
             where: {
-                card: next,
+                card: next.uuid,
                 user: user_id
             }
         })
-        return({...card, score: scores})
+        return({...next, score: scores})
     }
 
     /* 
@@ -473,7 +452,42 @@ function _round (x, d=0) {
     return(Math.round(x * 10**d) / 10**d)
 }
 
+/*
+ * Calculate weight for card based on prior weight and confidence in current answer
+ */ 
+function calc_weight(previous, evaluation) {
+    if (previous == null) {
+        previous = { n: 0, weight: 0.0 }
+    }
+
+    let weight = previous.weight;
+    let n = previous.n;
+
+    if(evaluation.score < 3) {
+        n = 0;
+        weight = 1;
+    } else if (evaluation.score < 5) {
+        n = n + 1;
+        weight = Math.round(1.5 * Math.max(previous.weight,1));
+        weight = Math.min(10, weight);
+    } else {
+        n = n + 1;
+        weight = 2 * Math.max(previous.weight,1);
+        weight = Math.min(10, weight);
+    }
+    return({n: n, weight: weight })
+}
+
+
 /**
+ * DEPRECATED:
+ * 
+ * I found SM-2 to not be enirely applicable to situations where daily study was not
+ * expected. Rather than an "interval", we need a weight such that failures increase 
+ * the probability of repeating a card, and successes decrease that probability. The 
+ * "interval" concept is not as applicable to the study behaviors I anticipate for users 
+ * of this platform
+ * 
  * This is the SM-2 algorithm from SuperMemo. 
  *
  * See https://www.supermemo.com/en/archives1990-2015/english/ol/sm2
