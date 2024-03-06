@@ -470,11 +470,11 @@ function calc_weight(previous, evaluation) {
         weight = 1;
     } else if (evaluation.score < 5) {
         n = n + 1;
-        weight = Math.round(1.5 * Math.max(previous.weight,1));
+        weight = Math.round(2 * Math.max(previous.weight,1));
         weight = Math.min(10, weight);
     } else {
         n = n + 1;
-        weight = 2 * Math.max(previous.weight,1);
+        weight = 4 * Math.max(previous.weight,1);
         weight = Math.min(10, weight);
     }
     return({n: n, weight: weight })
