@@ -379,7 +379,7 @@ export function Cards(config = {}) {
 
         // need to invert the weight (11 - a) so that low weight are 
         // more likely to be reviewed
-        let weightedArray = weights.flatMap((a, i) => Array(11 - (a.weight+1)).fill(a));
+        let weightedArray = weights.flatMap((a, i) => Array(11 - (a.weight)).fill(a));
         weightedArray = weightedArray.filter(a => a.uuid != previous);
         const randomIndex = Math.floor(Math.random() * weightedArray.length);
 
